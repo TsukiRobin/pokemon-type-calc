@@ -9,6 +9,9 @@
       font-family: Arial, sans-serif;
       padding: 20px;
     }
+    h1, h2 {
+      margin-bottom: 10px;
+    }
     .type-grid {
       display: flex;
       flex-wrap: wrap;
@@ -32,7 +35,7 @@
       outline-offset: -3px;
       box-shadow: 0 0 6px #4caf50;
     }
-    button.calculate, button.clear {
+    button {
       margin-top: 15px;
       padding: 10px 20px;
       margin-right: 10px;
@@ -41,14 +44,10 @@
       font-weight: bold;
       cursor: pointer;
     }
-    button.calculate {
-      background-color: #2196F3;
-      color: white;
-    }
-    button.clear {
-      background-color: #f44336;
-      color: white;
-    }
+    button.calculate { background-color: #2196F3; color: white; }
+    button.clear     { background-color: #f44336; color: white; }
+    button.toggle    { background-color: #9C27B0; color: white; }
+    button.matrix    { background-color: #607D8B; color: white; }
     table {
       margin-top: 20px;
       border-collapse: collapse;
@@ -56,23 +55,33 @@
     th, td {
       padding: 8px 12px;
       border: 1px solid #ccc;
+      text-align: center;
+    }
+    .hidden {
+      display: none;
     }
   </style>
 </head>
 <body>
   <h1>Pokémon Type Effectiveness Calculator</h1>
 
+  <button class="toggle" onclick="toggleMode()">Switch to Attacker Mode</button>
+
   <div id="typeButtons" class="type-grid"></div>
 
-  <button class="calculate" onclick="calculateEffectiveness()">Calculate Best Types</button>
+  <button class="calculate" onclick="calculate()">Calculate</button>
   <button class="clear" onclick="clearSelection()">Clear Selection</button>
+  <button class="matrix" onclick="showMatrix()">Show Matrix</button>
+  <button class="matrix" onclick="printPage()">Print / Export</button>
 
-  <table id="resultTable" style="display:none;">
-    <thead>
-      <tr><th>Type</th><th>Effectiveness</th></tr>
-    </thead>
+  <h2 id="modeLabel">Current Mode: Defender → Shows best attacking types</h2>
+
+  <table id="resultTable" class="hidden">
+    <thead><tr><th>Type</th><th>Effectiveness</th></tr></thead>
     <tbody></tbody>
   </table>
+
+  <div id="matrixContainer" class="hidden"></div>
 
   <script>
     const typeChart = {
@@ -106,60 +115,116 @@
     const typeList = Object.keys(typeChart).sort();
     const typeButtonsContainer = document.getElementById('typeButtons');
     let selectedTypes = [];
+    let attackerMode = false;
+
+    function toggleMode() {
+      attackerMode = !attackerMode;
+      clearSelection();
+      document.querySelector('.toggle').textContent = attackerMode ? 'Switch to Defender Mode' : 'Switch to Attacker Mode';
+      document.getElementById('modeLabel').textContent = attackerMode
+        ? 'Current Mode: Attacker → Shows what your type is strong/weak against'
+        : 'Current Mode: Defender → Shows best attacking types';
+    }
 
     typeList.forEach(type => {
       const btn = document.createElement('div');
       btn.className = 'type-button';
       btn.textContent = type;
       btn.style.backgroundColor = typeColors[type];
-      btn.title = `Select ${type} as a defender type.`;
+      btn.title = `${type}: Strong against ${getStrengths(type).join(', ')}`;
       btn.onclick = () => {
         if (selectedTypes.includes(type)) {
           selectedTypes = selectedTypes.filter(t => t !== type);
           btn.classList.remove('selected');
-        } else if (selectedTypes.length < 2) {
-          selectedTypes.push(type);
-          btn.classList.add('selected');
+        } else {
+          if ((attackerMode && selectedTypes.length < 1) || (!attackerMode && selectedTypes.length < 2)) {
+            selectedTypes.push(type);
+            btn.classList.add('selected');
+          }
         }
       };
       typeButtonsContainer.appendChild(btn);
     });
 
+    function getStrengths(type) {
+      const targets = typeChart[type] || {};
+      return Object.keys(targets).filter(k => targets[k] > 1);
+    }
+
     function clearSelection() {
       selectedTypes = [];
       document.querySelectorAll('.type-button').forEach(btn => btn.classList.remove('selected'));
-      document.getElementById('resultTable').style.display = 'none';
+      document.getElementById('resultTable').classList.add('hidden');
+      document.getElementById('matrixContainer').classList.add('hidden');
     }
 
-    function calculateEffectiveness() {
-      const [defType1, defType2] = selectedTypes;
+    function calculate() {
+      const tbody = document.querySelector('#resultTable tbody');
+      tbody.innerHTML = '';
+      document.getElementById('matrixContainer').classList.add('hidden');
+
       const effectiveness = {};
 
-      for (const atkType in typeChart) {
-        let mult = 1;
-        if (typeChart[atkType][defType1] !== undefined) {
-          mult *= typeChart[atkType][defType1];
+      if (attackerMode) {
+        const atk = selectedTypes[0];
+        if (!atk) return;
+        for (const defType in typeColors) {
+          let eff = typeChart[atk]?.[defType] ?? 1;
+          effectiveness[defType] = eff;
         }
-        if (defType2 && typeChart[atkType][defType2] !== undefined) {
-          mult *= typeChart[atkType][defType2];
+      } else {
+        const [d1, d2] = selectedTypes;
+        for (const atk in typeChart) {
+          let eff = 1;
+          if (typeChart[atk][d1] !== undefined) eff *= typeChart[atk][d1];
+          if (d2 && typeChart[atk][d2] !== undefined) eff *= typeChart[atk][d2];
+          effectiveness[atk] = eff;
         }
-        effectiveness[atkType] = mult;
       }
 
       const sorted = Object.entries(effectiveness)
-        .filter(([type, multiplier]) => multiplier > 1)
+        .filter(([_, m]) => m !== 1)
         .sort((a, b) => b[1] - a[1]);
 
-      const tbody = document.querySelector('#resultTable tbody');
-      tbody.innerHTML = '';
-
-      (sorted.length > 0 ? sorted : [['None', 1]]).forEach(([type, eff]) => {
+      (sorted.length ? sorted : [['None', 1]]).forEach(([type, eff]) => {
         const row = tbody.insertRow();
         row.insertCell(0).textContent = type;
         row.insertCell(1).textContent = eff;
       });
 
-      document.getElementById('resultTable').style.display = 'table';
+      document.getElementById('resultTable').classList.remove('hidden');
+    }
+
+    function showMatrix() {
+      const container = document.getElementById('matrixContainer');
+      container.innerHTML = '';
+      const table = document.createElement('table');
+      const header = table.insertRow();
+      header.insertCell(); // blank corner
+      typeList.forEach(t => {
+        const th = document.createElement('th');
+        th.textContent = t;
+        header.appendChild(th);
+      });
+
+      typeList.forEach(atk => {
+        const row = table.insertRow();
+        const th = document.createElement('th');
+        th.textContent = atk;
+        row.appendChild(th);
+        typeList.forEach(def => {
+          const cell = row.insertCell();
+          const val = typeChart[atk]?.[def] ?? 1;
+          cell.textContent = val;
+        });
+      });
+
+      container.appendChild(table);
+      container.classList.remove('hidden');
+    }
+
+    function printPage() {
+      window.print();
     }
   </script>
 </body>
