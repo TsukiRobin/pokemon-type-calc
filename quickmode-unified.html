@@ -1,0 +1,217 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Pokémon Type Calc – Unified Quick Mode</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      padding: 12px;
+      max-width: 480px;
+      margin: auto;
+      background: #fff;
+      color: #000;
+      transition: background 0.3s, color 0.3s;
+    }
+    .dark {
+      background: #121212;
+      color: #eee;
+    }
+    h2 {
+      margin-bottom: 5px;
+    }
+    input, button {
+      padding: 6px 10px;
+      font-size: 14px;
+      margin: 4px 4px 4px 0;
+    }
+    .sprite {
+      width: 48px;
+      height: 48px;
+      vertical-align: middle;
+    }
+    .selected-types span {
+      display: inline-block;
+      margin-right: 6px;
+      padding: 4px 8px;
+      border-radius: 5px;
+      color: #fff;
+      font-size: 14px;
+    }
+    .result {
+      margin-top: 10px;
+      font-weight: bold;
+    }
+    .autocomplete {
+      max-height: 200px;
+      overflow-y: auto;
+      border: 1px solid #ccc;
+    }
+    .autocomplete div {
+      padding: 6px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .autocomplete div:hover {
+      background: #f0f0f0;
+    }
+    .dark .autocomplete div:hover {
+      background: #2a2a2a;
+    }
+  </style>
+</head>
+<body>
+  <h2>Unified Type Calculator</h2>
+
+  <input type="text" id="search" placeholder="Search Pokémon..." />
+  <div id="autocomplete" class="autocomplete"></div>
+
+  <div style="margin-top: 8px;">
+    <button onclick="toggleMode()">⚔️ Mode: <span id="modeLabel">Defender</span></button>
+    <button onclick="toggleSprites()">🎮 Sprite: <span id="spriteLabel">Pixel</span></button>
+    <button onclick="toggleDark()">🌙 Dark Mode</button>
+  </div>
+
+  <div class="selected-types" id="selectedTypes" style="margin-top:10px;"></div>
+  <div id="selectedSprite" style="margin: 8px 0;"></div>
+  <div id="result" class="result"></div>
+
+  <script>
+    const typeChart = {
+      Normal: { Rock: 0.5, Ghost: 0, Steel: 0.5 },
+      Fire: { Fire: 0.5, Water: 0.5, Grass: 2, Ice: 2, Bug: 2, Rock: 0.5, Dragon: 0.5, Steel: 2 },
+      Water: { Fire: 2, Water: 0.5, Grass: 0.5, Ground: 2, Rock: 2, Dragon: 0.5 },
+      Grass: { Fire: 0.5, Water: 2, Grass: 0.5, Poison: 0.5, Ground: 2, Flying: 0.5, Bug: 0.5, Rock: 2, Dragon: 0.5, Steel: 0.5 },
+      Electric: { Water: 2, Electric: 0.5, Grass: 0.5, Ground: 0, Flying: 2, Dragon: 0.5 },
+      Ice: { Fire: 0.5, Water: 0.5, Grass: 2, Ice: 0.5, Ground: 2, Flying: 2, Dragon: 2, Steel: 0.5 },
+      Fighting: { Normal: 2, Ice: 2, Poison: 0.5, Flying: 0.5, Psychic: 0.5, Bug: 0.5, Rock: 2, Ghost: 0, Dark: 2, Steel: 2, Fairy: 0.5 },
+      Poison: { Grass: 2, Poison: 0.5, Ground: 0.5, Rock: 0.5, Ghost: 0.5, Steel: 0, Fairy: 2 },
+      Ground: { Fire: 2, Electric: 2, Grass: 0.5, Poison: 2, Flying: 0, Bug: 0.5, Rock: 2, Steel: 2 },
+      Flying: { Electric: 0.5, Grass: 2, Fighting: 2, Bug: 2, Rock: 0.5, Steel: 0.5 },
+      Psychic: { Fighting: 2, Poison: 2, Psychic: 0.5, Dark: 0, Steel: 0.5 },
+      Bug: { Fire: 0.5, Grass: 2, Fighting: 0.5, Poison: 0.5, Flying: 0.5, Psychic: 2, Ghost: 0.5, Dark: 2, Steel: 0.5, Fairy: 0.5 },
+      Rock: { Fire: 2, Ice: 2, Fighting: 0.5, Ground: 0.5, Flying: 2, Bug: 2, Steel: 0.5 },
+      Ghost: { Normal: 0, Psychic: 2, Ghost: 2, Dark: 0.5 },
+      Dragon: { Dragon: 2, Steel: 0.5, Fairy: 0 },
+      Dark: { Fighting: 0.5, Psychic: 2, Ghost: 2, Dark: 0.5, Fairy: 0.5 },
+      Steel: { Fire: 0.5, Water: 0.5, Electric: 0.5, Ice: 2, Rock: 2, Fairy: 2, Steel: 0.5 },
+      Fairy: { Fire: 0.5, Fighting: 2, Poison: 0.5, Dragon: 2, Dark: 2, Steel: 0.5 }
+    };
+
+    const typeColors = {
+      Normal: '#A8A77A', Fire: '#EE8130', Water: '#6390F0', Electric: '#F7D02C', Grass: '#7AC74C',
+      Ice: '#96D9D6', Fighting: '#C22E28', Poison: '#A33EA1', Ground: '#E2BF65', Flying: '#A98FF3',
+      Psychic: '#F95587', Bug: '#A6B91A', Rock: '#B6A136', Ghost: '#735797', Dragon: '#6F35FC',
+      Dark: '#705746', Steel: '#B7B7CE', Fairy: '#D685AD'
+    };
+
+    let mode = "defender"; // or "attacker"
+    let spriteMode = "pixel";
+    let pokemonData = {};
+    let currentTypes = [];
+
+    async function loadData() {
+      const res = await fetch("pokemon-types.json");
+      pokemonData = await res.json();
+    }
+
+    function getSprite(name) {
+      const base = spriteMode === "pixel"
+        ? `https://img.pokemondb.net/sprites/black-white/normal/${name}.png`
+        : `https://img.pokemondb.net/artwork/large/${name}.jpg`;
+      return base;
+    }
+
+    function updateSuggestions(filter) {
+      const box = document.getElementById("autocomplete");
+      box.innerHTML = "";
+      Object.entries(pokemonData)
+        .filter(([name]) => name.includes(filter.toLowerCase()))
+        .slice(0, 15)
+        .forEach(([name, data]) => {
+          const div = document.createElement("div");
+          div.innerHTML = `<img class="sprite" src="${getSprite(name)}"><span>${name}</span>`;
+          div.onclick = () => selectPokemon(name, data);
+          box.appendChild(div);
+        });
+    }
+
+    function selectPokemon(name, data) {
+      currentTypes = data.types;
+      document.getElementById("autocomplete").innerHTML = "";
+      document.getElementById("search").value = name;
+      updateDisplay(name, data);
+      calculate(currentTypes);
+    }
+
+    function updateDisplay(name, data) {
+      const spriteBox = document.getElementById("selectedSprite");
+      spriteBox.innerHTML = `<img class="sprite" src="${getSprite(name)}">`;
+
+      const typeBox = document.getElementById("selectedTypes");
+      typeBox.innerHTML = "";
+      data.types.forEach(type => {
+        const span = document.createElement("span");
+        span.textContent = type;
+        span.style.backgroundColor = typeColors[type];
+        typeBox.appendChild(span);
+      });
+    }
+
+    function calculate(types) {
+      const resultBox = document.getElementById("result");
+      const results = {};
+
+      if (mode === "attacker") {
+        const atk = types[0];
+        for (const def in typeColors) {
+          results[def] = typeChart[atk]?.[def] ?? 1;
+        }
+      } else {
+        for (const atk in typeColors) {
+          let m = 1;
+          if (typeChart[atk][types[0]] !== undefined) m *= typeChart[atk][types[0]];
+          if (types[1] && typeChart[atk][types[1]] !== undefined) m *= typeChart[atk][types[1]];
+          results[atk] = m;
+        }
+      }
+
+      const output = Object.entries(results)
+        .filter(([_, m]) => m !== 1)
+        .sort((a, b) => b[1] - a[1])
+        .map(([type, m]) => `${type} (${m})`)
+        .join(", ");
+
+      resultBox.textContent = output || "No major weaknesses.";
+    }
+
+    function toggleMode() {
+      mode = mode === "defender" ? "attacker" : "defender";
+      document.getElementById("modeLabel").textContent = mode.charAt(0).toUpperCase() + mode.slice(1);
+      if (currentTypes.length) calculate(currentTypes);
+    }
+
+    function toggleSprites() {
+      spriteMode = spriteMode === "pixel" ? "full" : "pixel";
+      document.getElementById("spriteLabel").textContent = spriteMode === "pixel" ? "Pixel" : "Full Art";
+      const currentName = document.getElementById("search").value.toLowerCase();
+      if (pokemonData[currentName]) updateDisplay(currentName, pokemonData[currentName]);
+    }
+
+    function toggleDark() {
+      document.body.classList.toggle("dark");
+    }
+
+    document.getElementById("search").addEventListener("input", e => {
+      const val = e.target.value;
+      if (val.length >= 2) updateSuggestions(val);
+      else document.getElementById("autocomplete").innerHTML = "";
+    });
+
+    loadData();
+  </script>
+</body>
+</html>
