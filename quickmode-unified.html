@@ -3,86 +3,94 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Pokémon Type Calc – Unified Quick Mode</title>
+  <title>Pokémon Type Calc – Quickmode Unified</title>
   <style>
     body {
       font-family: Arial, sans-serif;
-      padding: 12px;
       max-width: 480px;
       margin: auto;
-      background: #fff;
-      color: #000;
+      padding: 12px;
+      color: #fff;
+      background: rgba(0, 0, 0, 0.6);
+      backdrop-filter: blur(6px);
       transition: background 0.3s, color 0.3s;
     }
     .dark {
-      background: #121212;
+      background: rgba(0, 0, 0, 0.85);
       color: #eee;
     }
-    h2 {
-      margin-bottom: 5px;
-    }
     input, button {
-      padding: 6px 10px;
       font-size: 14px;
-      margin: 4px 4px 4px 0;
+      padding: 6px 10px;
+      margin: 4px 2px;
+      border-radius: 5px;
+      border: none;
+    }
+    button:hover {
+      opacity: 0.9;
     }
     .sprite {
       width: 48px;
       height: 48px;
-      vertical-align: middle;
     }
-    .selected-types span {
+    .type-button {
       display: inline-block;
-      margin-right: 6px;
-      padding: 4px 8px;
-      border-radius: 5px;
-      color: #fff;
-      font-size: 14px;
-    }
-    .result {
-      margin-top: 10px;
+      padding: 6px 10px;
+      margin: 4px 3px;
+      border-radius: 6px;
+      color: white;
       font-weight: bold;
+      font-size: 13px;
+      cursor: pointer;
+      border: 1px solid #333;
+    }
+    .type-button.selected {
+      outline: 2px solid #4caf50;
     }
     .autocomplete {
       max-height: 200px;
       overflow-y: auto;
-      border: 1px solid #ccc;
+      background: #222;
+      border: 1px solid #444;
     }
     .autocomplete div {
       padding: 6px;
-      cursor: pointer;
       display: flex;
       align-items: center;
       gap: 10px;
+      cursor: pointer;
     }
     .autocomplete div:hover {
-      background: #f0f0f0;
+      background: #333;
     }
-    .dark .autocomplete div:hover {
-      background: #2a2a2a;
+    .result, .selected-types {
+      margin-top: 10px;
+      font-weight: bold;
     }
   </style>
 </head>
 <body>
-  <h2>Unified Type Calculator</h2>
+  <h2>Pokémon Type Calculator</h2>
 
   <input type="text" id="search" placeholder="Search Pokémon..." />
   <div id="autocomplete" class="autocomplete"></div>
+
+  <div id="typeButtons"></div>
 
   <div style="margin-top: 8px;">
     <button onclick="toggleMode()">⚔️ Mode: <span id="modeLabel">Defender</span></button>
     <button onclick="toggleSprites()">🎮 Sprite: <span id="spriteLabel">Pixel</span></button>
     <button onclick="toggleDark()">🌙 Dark Mode</button>
+    <button onclick="clearSelection()">🧹 Clear</button>
   </div>
 
-  <div class="selected-types" id="selectedTypes" style="margin-top:10px;"></div>
+  <div class="selected-types" id="selectedTypes"></div>
   <div id="selectedSprite" style="margin: 8px 0;"></div>
   <div id="result" class="result"></div>
 
   <script>
     const typeChart = {
-      Normal: { Rock: 0.5, Ghost: 0, Steel: 0.5 },
-      Fire: { Fire: 0.5, Water: 0.5, Grass: 2, Ice: 2, Bug: 2, Rock: 0.5, Dragon: 0.5, Steel: 2 },
+      Normal: { Rock: 0.5, Ghost: 0, Steel: 0.5 }, Fire: { Fire: 0.5, Water: 0.5, Grass: 2, Ice: 2, Bug: 2, Rock: 0.5, Dragon: 0.5, Steel: 2 },
       Water: { Fire: 2, Water: 0.5, Grass: 0.5, Ground: 2, Rock: 2, Dragon: 0.5 },
       Grass: { Fire: 0.5, Water: 2, Grass: 0.5, Poison: 0.5, Ground: 2, Flying: 0.5, Bug: 0.5, Rock: 2, Dragon: 0.5, Steel: 0.5 },
       Electric: { Water: 2, Electric: 0.5, Grass: 0.5, Ground: 0, Flying: 2, Dragon: 0.5 },
@@ -108,21 +116,18 @@
       Dark: '#705746', Steel: '#B7B7CE', Fairy: '#D685AD'
     };
 
-    let mode = "defender"; // or "attacker"
-    let spriteMode = "pixel";
-    let pokemonData = {};
-    let currentTypes = [];
+    let mode = "defender", spriteMode = "pixel", selectedTypes = [], pokemonData = {};
 
     async function loadData() {
       const res = await fetch("pokemon-types.json");
       pokemonData = await res.json();
+      renderTypeButtons();
     }
 
     function getSprite(name) {
-      const base = spriteMode === "pixel"
+      return spriteMode === "pixel"
         ? `https://img.pokemondb.net/sprites/black-white/normal/${name}.png`
         : `https://img.pokemondb.net/artwork/large/${name}.jpg`;
-      return base;
     }
 
     function updateSuggestions(filter) {
@@ -140,25 +145,30 @@
     }
 
     function selectPokemon(name, data) {
-      currentTypes = data.types;
+      selectedTypes = [...data.types];
       document.getElementById("autocomplete").innerHTML = "";
       document.getElementById("search").value = name;
-      updateDisplay(name, data);
-      calculate(currentTypes);
+      updateDisplay(name, data.types);
     }
 
-    function updateDisplay(name, data) {
+    function updateDisplay(name, types) {
       const spriteBox = document.getElementById("selectedSprite");
       spriteBox.innerHTML = `<img class="sprite" src="${getSprite(name)}">`;
 
       const typeBox = document.getElementById("selectedTypes");
       typeBox.innerHTML = "";
-      data.types.forEach(type => {
+      types.forEach(type => {
         const span = document.createElement("span");
         span.textContent = type;
         span.style.backgroundColor = typeColors[type];
+        span.style.padding = "4px 8px";
+        span.style.margin = "2px";
+        span.style.borderRadius = "5px";
         typeBox.appendChild(span);
       });
+
+      calculate(types);
+      highlightSelectedButtons(types);
     }
 
     function calculate(types) {
@@ -188,21 +198,55 @@
       resultBox.textContent = output || "No major weaknesses.";
     }
 
+    function renderTypeButtons() {
+      const box = document.getElementById("typeButtons");
+      Object.keys(typeColors).sort().forEach(type => {
+        const btn = document.createElement("div");
+        btn.className = "type-button";
+        btn.style.backgroundColor = typeColors[type];
+        btn.textContent = type;
+        btn.onclick = () => {
+          if (selectedTypes.includes(type)) {
+            selectedTypes = selectedTypes.filter(t => t !== type);
+          } else if (selectedTypes.length < 2) {
+            selectedTypes.push(type);
+          }
+          updateDisplay("custom", selectedTypes);
+        };
+        box.appendChild(btn);
+      });
+    }
+
+    function highlightSelectedButtons(types) {
+      document.querySelectorAll('.type-button').forEach(btn => {
+        btn.classList.toggle('selected', types.includes(btn.textContent));
+      });
+    }
+
     function toggleMode() {
       mode = mode === "defender" ? "attacker" : "defender";
       document.getElementById("modeLabel").textContent = mode.charAt(0).toUpperCase() + mode.slice(1);
-      if (currentTypes.length) calculate(currentTypes);
+      if (selectedTypes.length) calculate(selectedTypes);
     }
 
     function toggleSprites() {
       spriteMode = spriteMode === "pixel" ? "full" : "pixel";
       document.getElementById("spriteLabel").textContent = spriteMode === "pixel" ? "Pixel" : "Full Art";
-      const currentName = document.getElementById("search").value.toLowerCase();
-      if (pokemonData[currentName]) updateDisplay(currentName, pokemonData[currentName]);
+      if (selectedTypes.length) updateDisplay(document.getElementById("search").value, selectedTypes);
     }
 
     function toggleDark() {
       document.body.classList.toggle("dark");
+    }
+
+    function clearSelection() {
+      selectedTypes = [];
+      document.getElementById("search").value = "";
+      document.getElementById("autocomplete").innerHTML = "";
+      document.getElementById("selectedSprite").innerHTML = "";
+      document.getElementById("selectedTypes").innerHTML = "";
+      document.getElementById("result").innerHTML = "";
+      highlightSelectedButtons([]);
     }
 
     document.getElementById("search").addEventListener("input", e => {
