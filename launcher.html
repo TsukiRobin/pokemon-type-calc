@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Launch Quick Mode</title>
+  <style>
+    body {
+      font-family: sans-serif;
+      padding: 30px;
+      text-align: center;
+    }
+    button {
+      padding: 15px 25px;
+      font-size: 16px;
+      border: none;
+      background-color: #4CAF50;
+      color: white;
+      border-radius: 5px;
+      cursor: pointer;
+    }
+    button:hover {
+      background-color: #45a049;
+    }
+  </style>
+</head>
+<body>
+  <h2>Open Pokémon Type Calc – Quick Mode</h2>
+  <button onclick="launchQuickMode()">Launch Quick Calculator</button>
+
+  <script>
+    function launchQuickMode() {
+      window.open('quickmode.html', '_blank', 'width=440,height=600,resizable=yes,scrollbars=yes');
+    }
+  </script>
+</body>
+</html>
