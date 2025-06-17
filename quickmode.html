@@ -1,0 +1,170 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Quick Mode – Pokémon Type Calc</title>
+  <style>
+    body { font-family: sans-serif; padding: 10px; max-width: 420px; }
+    h2 { margin-bottom: 5px; font-size: 18px; }
+    .type-button {
+      display: inline-block;
+      padding: 6px 10px;
+      margin: 3px;
+      border-radius: 5px;
+      color: #fff;
+      font-size: 13px;
+      cursor: pointer;
+      user-select: none;
+    }
+    .selected {
+      outline: 2px solid #4caf50;
+    }
+    .output {
+      margin-top: 10px;
+    }
+    #search {
+      width: 100%;
+      margin-bottom: 8px;
+      padding: 5px;
+      font-size: 14px;
+    }
+  </style>
+</head>
+<body>
+  <h2>Quick Type Calculator</h2>
+  <div>
+    <input id="search" type="text" placeholder="Type to filter or press / to focus..." />
+    <div id="types"></div>
+    <div class="output">
+      <strong>Mode:</strong> <span id="modeLabel">Defender</span><br/>
+      <strong>Selected:</strong> <span id="selection">None</span><br/>
+      <strong>Result:</strong>
+      <ul id="results"></ul>
+    </div>
+    <button onclick="toggleMode()">Toggle Mode (T)</button>
+    <button onclick="reset()">Reset (R)</button>
+    <button onclick="window.print()">Print (P)</button>
+  </div>
+
+  <script>
+    const typeChart = {
+      Normal:     { Rock: 0.5, Ghost: 0, Steel: 0.5 },
+      Fire:       { Fire: 0.5, Water: 0.5, Grass: 2, Ice: 2, Bug: 2, Rock: 0.5, Dragon: 0.5, Steel: 2 },
+      Water:      { Fire: 2, Water: 0.5, Grass: 0.5, Ground: 2, Rock: 2, Dragon: 0.5 },
+      Grass:      { Fire: 0.5, Water: 2, Grass: 0.5, Poison: 0.5, Ground: 2, Flying: 0.5, Bug: 0.5, Rock: 2, Dragon: 0.5, Steel: 0.5 },
+      Electric:   { Water: 2, Electric: 0.5, Grass: 0.5, Ground: 0, Flying: 2, Dragon: 0.5 },
+      Ice:        { Fire: 0.5, Water: 0.5, Grass: 2, Ice: 0.5, Ground: 2, Flying: 2, Dragon: 2, Steel: 0.5 },
+      Fighting:   { Normal: 2, Ice: 2, Poison: 0.5, Flying: 0.5, Psychic: 0.5, Bug: 0.5, Rock: 2, Ghost: 0, Dark: 2, Steel: 2, Fairy: 0.5 },
+      Poison:     { Grass: 2, Poison: 0.5, Ground: 0.5, Rock: 0.5, Ghost: 0.5, Steel: 0, Fairy: 2 },
+      Ground:     { Fire: 2, Electric: 2, Grass: 0.5, Poison: 2, Flying: 0, Bug: 0.5, Rock: 2, Steel: 2 },
+      Flying:     { Electric: 0.5, Grass: 2, Fighting: 2, Bug: 2, Rock: 0.5, Steel: 0.5 },
+      Psychic:    { Fighting: 2, Poison: 2, Psychic: 0.5, Dark: 0, Steel: 0.5 },
+      Bug:        { Fire: 0.5, Grass: 2, Fighting: 0.5, Poison: 0.5, Flying: 0.5, Psychic: 2, Ghost: 0.5, Dark: 2, Steel: 0.5, Fairy: 0.5 },
+      Rock:       { Fire: 2, Ice: 2, Fighting: 0.5, Ground: 0.5, Flying: 2, Bug: 2, Steel: 0.5 },
+      Ghost:      { Normal: 0, Psychic: 2, Ghost: 2, Dark: 0.5 },
+      Dragon:     { Dragon: 2, Steel: 0.5, Fairy: 0 },
+      Dark:       { Fighting: 0.5, Psychic: 2, Ghost: 2, Dark: 0.5, Fairy: 0.5 },
+      Steel:      { Fire: 0.5, Water: 0.5, Electric: 0.5, Ice: 2, Rock: 2, Fairy: 2, Steel: 0.5 },
+      Fairy:      { Fire: 0.5, Fighting: 2, Poison: 0.5, Dragon: 2, Dark: 2, Steel: 0.5 }
+    };
+
+    const typeColors = {
+      Normal: '#A8A77A', Fire: '#EE8130', Water: '#6390F0', Electric: '#F7D02C', Grass: '#7AC74C',
+      Ice: '#96D9D6', Fighting: '#C22E28', Poison: '#A33EA1', Ground: '#E2BF65', Flying: '#A98FF3',
+      Psychic: '#F95587', Bug: '#A6B91A', Rock: '#B6A136', Ghost: '#735797', Dragon: '#6F35FC',
+      Dark: '#705746', Steel: '#B7B7CE', Fairy: '#D685AD'
+    };
+
+    let selected = [];
+    let isAttackerMode = false;
+
+    const results = document.getElementById('results');
+    const selection = document.getElementById('selection');
+    const typesDiv = document.getElementById('types');
+    const search = document.getElementById('search');
+
+    const allTypes = Object.keys(typeChart).sort();
+    allTypes.forEach(type => {
+      const div = document.createElement('div');
+      div.className = 'type-button';
+      div.textContent = type;
+      div.style.backgroundColor = typeColors[type];
+      div.dataset.type = type;
+      div.onclick = () => toggleType(type, div);
+      typesDiv.appendChild(div);
+    });
+
+    function toggleType(type, element) {
+      const limit = isAttackerMode ? 1 : 2;
+      if (selected.includes(type)) {
+        selected = selected.filter(t => t !== type);
+        element.classList.remove('selected');
+      } else if (selected.length < limit) {
+        selected.push(type);
+        element.classList.add('selected');
+      }
+      update();
+    }
+
+    function update() {
+      selection.textContent = selected.join(' + ') || 'None';
+      results.innerHTML = '';
+      if (selected.length === 0) return;
+
+      let effectiveness = {};
+
+      if (isAttackerMode) {
+        let atk = selected[0];
+        for (let def of allTypes) {
+          let mult = typeChart[atk]?.[def] ?? 1;
+          effectiveness[def] = mult;
+        }
+      } else {
+        const [d1, d2] = selected;
+        for (let atk of allTypes) {
+          let mult = 1;
+          if (typeChart[atk][d1] !== undefined) mult *= typeChart[atk][d1];
+          if (d2 && typeChart[atk][d2] !== undefined) mult *= typeChart[atk][d2];
+          effectiveness[atk] = mult;
+        }
+      }
+
+      Object.entries(effectiveness)
+        .filter(([_, m]) => m !== 1)
+        .sort((a, b) => b[1] - a[1])
+        .forEach(([type, mult]) => {
+          const li = document.createElement('li');
+          li.textContent = `${type}: ${mult}`;
+          results.appendChild(li);
+        });
+    }
+
+    function reset() {
+      selected = [];
+      document.querySelectorAll('.selected').forEach(e => e.classList.remove('selected'));
+      update();
+    }
+
+    function toggleMode() {
+      isAttackerMode = !isAttackerMode;
+      document.getElementById('modeLabel').textContent = isAttackerMode ? 'Attacker' : 'Defender';
+      reset();
+    }
+
+    search.addEventListener('input', () => {
+      const value = search.value.toLowerCase();
+      document.querySelectorAll('.type-button').forEach(btn => {
+        btn.style.display = btn.dataset.type.toLowerCase().includes(value) ? 'inline-block' : 'none';
+      });
+    });
+
+    document.addEventListener('keydown', e => {
+      if (e.key === '/') { e.preventDefault(); search.focus(); }
+      if (e.key === 'r') reset();
+      if (e.key === 't') toggleMode();
+      if (e.key === 'p') print();
+    });
+  </script>
+</body>
+</html>
