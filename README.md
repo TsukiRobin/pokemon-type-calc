@@ -1,19 +1,26 @@
-# Pokémon Type Calculator
+# Pokémon Type Calculator – Quickmode
 
-This is a custom-built, browser-based type effectiveness calculator I created to assist during battles in [Pokerogue](https://pokerogue.net) and other Pokémon-style games.
+This project is a fast, responsive Pokémon type calculator built for real-time use during gameplay — especially for [Pokerogue.net](https://pokerogue.net) and similar games.
 
-### Features
-- ✅ Autocomplete Pokédex search (Gen 1–9)
-- ✅ Type auto-detection from selected Pokémon
-- ✅ Sprite toggle (Pixel ↔ Full Art)
-- ✅ Dark mode toggle for late-night battles
-- ✅ Fast, responsive layout ideal for side-by-side gaming
+## Features
+- 🔍 Pokédex search with autocomplete (Gen 1–9)
+- 🖱 Type button selection (manual input)
+- ⚔️ Attacker/Defender mode toggle
+- 🎮 Pixel ↔ Full Art sprite toggle
+- 🌙 Dark mode
+- 💡 Transparent, HUD-style design ideal for side-by-side use
 
-### Why I Built It
-I started this project to learn how to:
-- Use HTML, CSS and JavaScript together in a functional app
-- Work with dynamic JSON data (like Pokédex info)
-- Build responsive, useful UIs from scratch
-- Host my own tools with GitHub Pages
+## Why I Built This
+I created this project to learn HTML, CSS, JavaScript, and GitHub Pages. It started as a simple type calculator and evolved into a full tool that helped me better understand:
 
-This has been a fun way to dive into front-end dev
+- DOM manipulation
+- Data-driven UI (from JSON)
+- User experience design
+- Hosting and version control via GitHub
+
+## Run It
+Use it live here:  
+🔗 [https://tsukirobin.github.io/pokemon-type-calc/quickmode-unified.html](https://tsukirobin.github.io/pokemon-type-calc/quickmode-unified.html)
+
+Or launch it in a small popup with:  
+🔗 [launcher.html](https://tsukirobin.github.io/pokemon-type-calc/launcher.html)
